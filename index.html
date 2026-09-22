@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Kamera Benar Salah By @Aliabidin98</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.8);
+            background-color: #1a1a2e;
+        }
+        
+        /* Video Webcam Background */
+        #webcam {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            object-fit: cover;
+            z-index: 0;
+            transform: scaleX(-1);
+            display: none;
+        }
+
+        /* Clickable Color Overlays */
+        .overlay {
+            position: fixed;
+            top: 0; height: 100vh; width: 50vw;
+            z-index: 1;
+            mix-blend-mode: multiply;
+            cursor: pointer;
+            transition: opacity 0.2s, background-color 0.2s;
+            display: none;
+        }
+        .overlay:hover { opacity: 0.85; }
+        .overlay:active { opacity: 1; }
+        #overlay-salah { left: 0; background-color: rgba(231, 76, 60, 0.55); }
+        #overlay-benar { right: 0; background-color: rgba(46, 204, 113, 0.55); }
+
+        .overlay-label {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 5rem;
+            font-weight: 900;
+            opacity: 0.25;
+            pointer-events: none;
+            letter-spacing: 4px;
+        }
+        #overlay-salah .overlay-label { left: 10%; color: #ffffff; }
+        #overlay-benar .overlay-label { right: 10%; color: #ffffff; }
+
+        /* Game UI Layout */
+        #app-container {
+            display: none;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100vh;
+            padding: 20px;
+            position: relative;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        #header {
+            text-align: center;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(8px);
+            padding: 24px;
+            border-radius: 20px;
+            margin: 0 auto;
+            width: 92%;
+            max-width: 850px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            pointer-events: auto;
+        }
+
+        #status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 22px;
+            font-weight: bold;
+            color: #f1c40f;
+            margin-bottom: 15px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 10px;
+        }
+
+        #question-text {
+            font-size: 32px;
+            font-weight: 800;
+            line-height: 1.4;
+            color: #ffffff;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.9);
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-bottom: 30px;
+            pointer-events: auto;
+        }
+
+        button.btn-jawaban {
+            font-size: 32px;
+            font-weight: bold;
+            padding: 18px 50px;
+            border: 4px solid white;
+            border-radius: 50px;
+            cursor: pointer;
+            color: white;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.6);
+            transition: all 0.2s ease;
+        }
+        button.btn-jawaban:hover { transform: translateY(-4px) scale(1.05); }
+        button.btn-jawaban:active { transform: translateY(2px) scale(0.98); }
+        #btn-salah { background-color: #e74c3c; }
+        #btn-benar { background-color: #2ecc71; }
+
+        /* Setup / Question Editor Screen */
+        #setup-screen {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #f4f6f9;
+            color: #2c3e50;
+            text-shadow: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .setup-box {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+            width: 100%;
+            max-width: 650px;
+        }
+
+        .input-group { margin-bottom: 15px; }
+        .input-group label {
+            display: block;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 6px;
+            color: #4a5568;
+        }
+        .input-group input[type="text"], .input-group input[type="number"] {
+            width: 100%; padding: 12px 15px; font-size: 16px;
+            border: 2px solid #e2e8f0; border-radius: 10px;
+            transition: border-color 0.2s;
+        }
+        .input-group input:focus {
+            outline: none;
+            border-color: #3182ce;
+        }
+
+        .pilihan-container {
+            display: flex; gap: 12px; margin-bottom: 15px;
+        }
+        .btn-pilih {
+            flex: 1; padding: 12px; font-size: 15px; font-weight: bold;
+            border: 2px solid #cbd5e0; border-radius: 10px; cursor: pointer;
+            background: #edf2f7; color: #4a5568; transition: all 0.2s;
+        }
+        .btn-pilih.active-benar { background: #2ecc71; color: white; border-color: #27ae60; }
+        .btn-pilih.active-salah { background: #e74c3c; color: white; border-color: #c0392b; }
+
+        .btn-tambah {
+            width: 100%; padding: 14px; background: #2b6cb0; color: white;
+            border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-tambah:hover { background: #2c5282; }
+
+        .soal-list-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .soal-list {
+            max-height: 180px; overflow-y: auto;
+            border: 2px solid #edf2f7; border-radius: 10px; padding: 10px; background: #f8fafc;
+        }
+        .soal-item {
+            background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px;
+            display: flex; justify-content: space-between; align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05); font-size: 14px; border: 1px solid #e2e8f0;
+        }
+        .badge-benar { background: #c6f6d5; color: #22543d; padding: 3px 8px; border-radius: 5px; font-weight: bold; font-size: 12px; margin-right: 8px; }
+        .badge-salah { background: #fed7d7; color: #742a2a; padding: 3px 8px; border-radius: 5px; font-weight: bold; font-size: 12px; margin-right: 8px; }
+        .btn-hapus {
+            background: #feb2b2; color: #9b2c2c; border: none; padding: 6px 12px;
+            border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold;
+            transition: background 0.2s;
+        }
+        .btn-hapus:hover { background: #fc8181; color: white; }
+
+        .btn-reset-soal {
+            background: none; border: none; color: #3182ce; font-size: 13px;
+            cursor: pointer; text-decoration: underline; font-weight: 600;
+        }
+
+        .start-btn {
+            background: #48bb78; color: white; border: none; margin-top: 20px;
+            padding: 16px 30px; font-size: 20px; border-radius: 12px;
+            cursor: pointer; font-weight: bold; width: 100%;
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+            transition: all 0.2s;
+        }
+        .start-btn:hover { background: #38a169; transform: translateY(-2px); }
+        
+        /* Feedback Overlay Screen */
+        #feedback {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            font-size: 52px; font-weight: 900; display: none; z-index: 20;
+            text-align: center; background: rgba(0, 0, 0, 0.88); padding: 35px 50px;
+            border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+            width: 85%; max-width: 750px; border: 3px solid rgba(255,255,255,0.2);
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: translate(-50%, -50%) scale(0.7); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+        }
+
+        .keterangan-jawaban {
+            font-size: 32px; margin-top: 20px; color: #ffffff;
+            background: rgba(255,255,255,0.1); padding: 12px; border-radius: 12px;
+        }
+
+        .btn-kembali, .btn-main-lagi {
+            padding: 15px 30px; font-size: 22px; font-weight: bold;
+            border: 3px solid white; border-radius: 15px; cursor: pointer; color: white;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: transform 0.2s;
+        }
+        .btn-kembali:hover, .btn-main-lagi:hover { transform: scale(1.05); }
+        .btn-kembali { background-color: #f39c12; }
+        .btn-main-lagi { background-color: #3498db; }
+
+        /* Custom Modal Popup (Replacing alert) */
+        #custom-modal {
+            display: none;
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(4px);
+            z-index: 100; justify-content: center; align-items: center;
+        }
+        .modal-card {
+            background: white; color: #2d3748; padding: 25px 30px;
+            border-radius: 16px; text-shadow: none; max-width: 420px; width: 90%;
+            text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+        .modal-card h3 { margin-top: 0; font-size: 22px; color: #e53e3e; }
+        .modal-card p { font-size: 16px; margin: 15px 0 25px 0; color: #4a5568; line-height: 1.5; }
+        .modal-card button {
+            background: #3182ce; color: white; border: none; padding: 10px 25px;
+            border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Screen 1: Setup and Question Bank -->
+    <div id="setup-screen">
+        <div class="setup-box">
+            <h2 style="text-align:center; margin-top:0; color:#2b6cb0;">📷 Game Kamera Benar Salah</h2>
+            
+            <div class="input-group">
+                <label for="input-pertanyaan">Pertanyaan Baru:</label>
+                <input type="text" id="input-pertanyaan" placeholder="Ketik pertanyaan di sini...">
+            </div>
+            
+            <div class="pilihan-container">
+                <button id="pilih-benar" class="btn-pilih active-benar" onclick="setPilihanJawaban(true)">Kunci: BENAR</button>
+                <button id="pilih-salah" class="btn-pilih" onclick="setPilihanJawaban(false)">Kunci: SALAH</button>
+            </div>
+            
+            <button class="btn-tambah" onclick="tambahSoal()">+ Tambah ke Database</button>
+
+            <div class="soal-list-header">
+                <label style="font-weight:bold; font-size:14px; color:#4a5568;">Daftar Soal Tersimpan:</label>
+                <button class="btn-reset-soal" onclick="resetKeSoalBawaan()">🔄 Muat Soal Default</button>
+            </div>
+
+            <div class="soal-list" id="daftar-soal-ui">
+                <!-- Question items render here -->
+            </div>
+            
+            <div class="input-group" style="margin-top:15px;">
+                <label for="timer-input">Durasi per Soal (Detik):</label>
+                <input type="number" id="timer-input" value="30" min="5" max="300">
+            </div>
+            
+            <button class="start-btn" onclick="mulaiGame()">Mulai Game!</button>
+        </div>
+    </div>
+
+    <!-- Webcam Background Video -->
+    <video id="webcam" autoplay playsinline></video>
+    
+    <!-- Clickable Screen Zones -->
+    <div id="overlay-salah" class="overlay" onclick="cekJawaban(false)">
+        <div class="overlay-label">SALAH</div>
+    </div>
+    <div id="overlay-benar" class="overlay" onclick="cekJawaban(true)">
+        <div class="overlay-label">BENAR</div>
+    </div>
+
+    <!-- Game HUD Interface -->
+    <div id="app-container">
+        <div id="header">
+            <div id="status-bar">
+                <span id="soal-counter">SOAL 1 / 1</span>
+                <span id="timer-display">⏱ 30s</span>
+                <span id="score-display">Skor: 0</span>
+            </div>
+            <div id="question-text">Memuat pertanyaan...</div>
+            <div style="font-size: 13px; margin-top: 15px; color:#cbd5e0; font-weight:normal;">
+                💡 *Klik layar sisi kiri (SALAH) atau kanan (BENAR) atau gunakan tombol di bawah
+            </div>
+        </div>
+
+        <div id="controls">
+            <button id="btn-salah" class="btn-jawaban" onclick="cekJawaban(false)">✖ SALAH</button>
+            <button id="btn-benar" class="btn-jawaban" onclick="cekJawaban(true)">✔ BENAR</button>
+        </div>
+
+        <div id="end-controls" style="display:none; justify-content: center; gap: 30px; margin-bottom: 40px; pointer-events: auto;">
+            <button class="btn-kembali" onclick="kembaliKeMenu()">⚙️ Pengaturan Soal</button>
+            <button class="btn-main-lagi" onclick="mulaiGame()">🔄 Main Lagi</button>
+        </div>
+    </div>
+
+    <!-- Answer Feedback Overlay -->
+    <div id="feedback"></div>
+
+    <!-- Custom Modal Popup -->
+    <div id="custom-modal">
+        <div class="modal-card">
+            <h3 id="modal-title">Pemberitahuan</h3>
+            <p id="modal-message">Pesan disini...</p>
+            <button onclick="tutupModal()">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // Default sample questions if localStorage is empty
+        const sampleSoalBawaan = [
+            { pertanyaan: "Iklan adalah teks persuatif yang memadukan unsur gambar, kata-kata, gerak, dan suara (pada media elektronik).", jawaban: true },
+            { pertanyaan: "Slogan merupakan jenis teks persuatif yang lebih mengutamakan kekuatan gambar daripada unsur kata-kata.", jawaban: false },
+            { pertanyaan: "Bahasa yang digunakan dalam slogan biasanya panjang, bertele-tele, dan rumit agar pembaca berpikir keras.", jawaban: false },
+            { pertanyaan: " Salah satu fungsi utama dari iklan komersial adalah mempromosikan barang atau jasa kepada masyarakat.", jawaban: true },
+            { pertanyaan: "Laba-laba tergolong dalam kelompok serangga berkaki enam.", jawaban: false }
+        ];
+
+        // Load database from localStorage or fallback to default sample questions
+        let databaseRaw = localStorage.getItem('databaseSoalKamera');
+        let daftarSoal = databaseRaw ? JSON.parse(databaseRaw) : [...sampleSoalBawaan];
+        
+        // Save initial default questions if first run
+        if (!databaseRaw) {
+            simpanDatabase();
+        }
+
+        let kunciJawabanBaru = true;
+        let soalDiacak = [];
+        let soalSaatIni = 0;
+        let skor = 0;
+        let timerDuration = 30;
+        let waktuTersisa;
+        let intervalTimer = null;
+        let isMenungguJeda = false;
+
+        function tampilkanModal(pesan, judul = "Pemberitahuan") {
+            document.getElementById('modal-title').innerText = judul;
+            document.getElementById('modal-message').innerText = pesan;
+            document.getElementById('custom-modal').style.display = 'flex';
+        }
+
+        function tutupModal() {
+            document.getElementById('custom-modal').style.display = 'none';
+        }
+
+        function setPilihanJawaban(isBenar) {
+            kunciJawabanBaru = isBenar;
+            const btnBenar = document.getElementById('pilih-benar');
+            const btnSalah = document.getElementById('pilih-salah');
+            
+            if (isBenar) {
+                btnBenar.classList.add('active-benar');
+                btnSalah.classList.remove('active-salah');
+            } else {
+                btnBenar.classList.remove('active-benar');
+                btnSalah.classList.add('active-salah');
+            }
+        }
+
+        function tambahSoal() {
+            const inputTanya = document.getElementById('input-pertanyaan');
+            const teks = inputTanya.value.trim();
+            
+            if (teks === "") {
+                tampilkanModal("Pertanyaan tidak boleh kosong!", "Peringatan");
+                return;
+            }
+
+            daftarSoal.push({ pertanyaan: teks, jawaban: kunciJawabanBaru });
+            simpanDatabase();
+            inputTanya.value = "";
+            renderDaftarSoal();
+        }
+
+        function hapusSoal(index) {
+            daftarSoal.splice(index, 1);
+            simpanDatabase();
+            renderDaftarSoal();
+        }
+
+        function resetKeSoalBawaan() {
+            daftarSoal = [...sampleSoalBawaan];
+            simpanDatabase();
+            renderDaftarSoal();
+            tampilkanModal("Daftar soal berhasil dikembalikan ke contoh bawaan.", "Informasi");
+        }
+
+        function simpanDatabase() {
+            localStorage.setItem('databaseSoalKamera', JSON.stringify(daftarSoal));
+        }
+
+        function renderDaftarSoal() {
+            const container = document.getElementById('daftar-soal-ui');
+            if (daftarSoal.length === 0) {
+                container.innerHTML = "<p style='text-align:center; color:#a0aec0; margin:20px 0;'>Belum ada soal. Silakan tambah atau muat soal default.</p>";
+                return;
+            }
+
+            let html = "";
+            daftarSoal.forEach((soal, index) => {
+                const labelKunci = soal.jawaban 
+                    ? '<span class="badge-benar">BENAR</span>' 
+                    : '<span class="badge-salah">SALAH</span>';
+                
+                html += `
+                    <div class="soal-item">
+                        <div style="flex:1; padding-right: 10px;">
+                            ${labelKunci} ${soal.pertanyaan}
+                        </div>
+                        <button class="btn-hapus" onclick="hapusSoal(${index})">Hapus</button>
+                    </div>
+                `;
+            });
+            container.innerHTML = html;
+        }
+
+        renderDaftarSoal();
+
+        async function setupKamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                document.getElementById('webcam').srcObject = stream;
+            } catch (err) {
+                tampilkanModal("Webcam tidak terdeteksi atau izin kamera ditolak. Game tetap berjalan menggunakan mode latar transparan.", "Informasi Kamera");
+            }
+        }
+
+        function mulaiGame() {
+            if (daftarSoal.length === 0) {
+                tampilkanModal("Tolong tambahkan minimal 1 soal terlebih dahulu!", "Soal Kosong");
+                return;
+            }
+
+            timerDuration = parseInt(document.getElementById('timer-input').value) || 30;
+            soalSaatIni = 0;
+            skor = 0;
+            
+            // Duplicate and randomize questions
+            soalDiacak = JSON.parse(JSON.stringify(daftarSoal));
+            soalDiacak.sort(() => Math.random() - 0.5);
+
+            // Screen Transitions
+            document.getElementById('setup-screen').style.display = 'none';
+            document.getElementById('webcam').style.display = 'block';
+            document.getElementById('overlay-salah').style.display = 'block';
+            document.getElementById('overlay-benar').style.display = 'block';
+            document.getElementById('app-container').style.display = 'flex';
+            
+            // Reset HUD Elements
+            document.getElementById('controls').style.display = 'flex';
+            document.getElementById('status-bar').style.display = 'flex';
+            document.getElementById('end-controls').style.display = 'none';
+            document.getElementById('score-display').innerText = `Skor: ${skor}`;
+
+            setupKamera();
+            tampilkanSoal();
+        }
+
+        function tampilkanSoal() {
+            if (soalSaatIni >= soalDiacak.length) {
+                selesaiGame();
+                return;
+            }
+
+            isMenungguJeda = false;
+            const soalObj = soalDiacak[soalSaatIni];
+            
+            // Set text on HUD
+            document.getElementById('question-text').innerText = soalObj.pertanyaan;
+            document.getElementById('soal-counter').innerText = `SOAL ${soalSaatIni + 1} / ${soalDiacak.length}`;
+            
+            waktuTersisa = timerDuration;
+            updateTimerDisplay();
+            
+            clearInterval(intervalTimer);
+            intervalTimer = setInterval(hitungMundur, 1000);
+        }
+
+        function hitungMundur() {
+            waktuTersisa--;
+            updateTimerDisplay();
+            
+            if (waktuTersisa <= 0) {
+                clearInterval(intervalTimer);
+                prosesHasilGame(null); // Null = Waktu Habis
+            }
+        }
+
+        function updateTimerDisplay() {
+            const timerEl = document.getElementById('timer-display');
+            timerEl.innerText = `⏱ ${waktuTersisa}s`;
+            timerEl.style.color = (waktuTersisa <= 5) ? "#e74c3c" : "#f1c40f";
+        }
+
+        function cekJawaban(jawabanUser) {
+            if (isMenungguJeda) return; 
+            clearInterval(intervalTimer);
+            prosesHasilGame(jawabanUser);
+        }
+
+        function prosesHasilGame(jawabanUser) {
+            isMenungguJeda = true;
+            
+            const jawabanBenar = soalDiacak[soalSaatIni].jawaban;
+            let statusWarna = "";
+            let htmlPesan = "";
+
+            if (jawabanUser === null) {
+                statusWarna = "#f1c40f"; // Kuning
+                htmlPesan = `WAKTU HABIS! ⏱`;
+            } else if (jawabanUser === jawabanBenar) {
+                skor += 10;
+                document.getElementById('score-display').innerText = `Skor: ${skor}`;
+                statusWarna = "#2ecc71"; // Hijau
+                htmlPesan = `TEPAT! 🎉`;
+            } else {
+                statusWarna = "#e74c3c"; // Merah
+                htmlPesan = `KELIRU! ❌`;
+            }
+
+            const teksKunci = jawabanBenar ? "BENAR" : "SALAH";
+            htmlPesan += `<div class="keterangan-jawaban">Jawaban: <b>${teksKunci}</b></div>`;
+
+            tampilkanFeedback(statusWarna, htmlPesan);
+
+            // 5-second countdown pause before next question
+            setTimeout(() => { 
+                document.getElementById('feedback').style.display = "none";
+                soalSaatIni++;
+                tampilkanSoal();
+            }, 5000);
+        }
+
+        function tampilkanFeedback(warna, htmlPesan) {
+            const fb = document.getElementById('feedback');
+            fb.innerHTML = htmlPesan;
+            fb.style.color = warna;
+            fb.style.display = "block";
+        }
+
+        function selesaiGame() {
+            document.getElementById('question-text').innerHTML = `🎉 PERMAINAN SELESAI!<br><br>Skor Akhir Anda: <span style="color:#f1c40f;">${skor}</span>`;
+            document.getElementById('controls').style.display = 'none';
+            document.getElementById('status-bar').style.display = 'none';
+
+            document.getElementById('end-controls').style.display = 'flex';
+            document.getElementById('overlay-salah').style.display = 'none';
+            document.getElementById('overlay-benar').style.display = 'none';
+        }
+
+        function kembaliKeMenu() {
+            document.getElementById('app-container').style.display = 'none';
+            document.getElementById('end-controls').style.display = 'none';
+            document.getElementById('setup-screen').style.display = 'flex';
+            document.getElementById('webcam').style.display = 'none';
+            
+            const video = document.getElementById('webcam');
+            if (video.srcObject) {
+                video.srcObject.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+            }
+            renderDaftarSoal();
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if(document.getElementById('app-container').style.display === 'flex' && !isMenungguJeda) {
+                if (event.key === "ArrowLeft") {
+                    cekJawaban(false);
+                } else if (event.key === "ArrowRight") {
+                    cekJawaban(true);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
